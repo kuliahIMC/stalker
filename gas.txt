@@ -1,0 +1,179 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+# ==============================================
+# MAIN SCRIPT - TERMUX
+# ==============================================
+
+set -u
+
+# Warna dasar
+R='\033[0;31m'
+G='\033[0;32m'
+Y='\033[0;33m'
+B='\033[0;34m'
+N='\033[0m'
+
+# ==============================================
+# UTILITAS
+# ==============================================
+
+pause() {
+    printf "%b" "${Y}Tekan Enter untuk kembali ke menu...${N}"
+    read -r
+}
+
+warna_loading() {
+    local cols rows msg length i
+    cols=$(tput cols 2>/dev/null || echo 80)
+    rows=$(tput lines 2>/dev/null || echo 24)
+    msg="TUNGGU BENTAR....."
+    length=${#msg}
+
+    tput clear 2>/dev/null || clear
+    for ((i=1; i<=10; i++)); do
+        tput cup $((rows/2)) $(((cols/2)-(length/2))) 2>/dev/null || true
+        echo -ne "\e[3${i}m${msg}\e[0m"
+        sleep 0.1
+    done
+
+    tput cup $((rows/2 + 1)) $(((cols/2)-(length/2))) 2>/dev/null || true
+    echo "selesai"
+    tput cvvis 2>/dev/null || true
+    sleep 0.3
+}
+
+check_command() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+run_local_module() {
+    echo -e "${G}[*] Memeriksa modul lokal...${N}"
+
+    if [ ! -d "modul" ]; then
+        echo -e "${R}[-] Direktori modul tidak ditemukan.${N}"
+        echo -e "${Y}    Jalankan Install.sh terlebih dahulu jika modul memang diperlukan.${N}"
+        pause
+        return
+    fi
+
+    if [ -f "modul/main.py" ]; then
+        echo -e "${G}[+] Menjalankan modul lokal...${N}"
+        python3 modul/main.py
+    elif [ -f "modul/seeker.py" ]; then
+        echo -e "${Y}[!] Modul seeker terdeteksi, tetapi tidak dijalankan otomatis.${N}"
+        echo -e "${Y}    Gunakan hanya pada perangkat/data yang kamu miliki atau dengan izin.${N}"
+        pause
+    else
+        echo -e "${R}[-] File modul yang didukung tidak ditemukan.${N}"
+        pause
+    fi
+}
+
+# ==============================================
+# PASSWORD
+# ==============================================
+
+clear
+echo -e "${B}Hai, selamat datang di shell${N}"
+sleep 0.5
+
+printf "%b" "${G}Berikan password: ${N}"
+read -r -s input_password
+echo ""
+
+if [ "$input_password" != "takoyaki" ]; then
+    echo -e "${R}Kamu bukan admin.${N}"
+    exit 1
+fi
+
+warna_loading
+
+# ==============================================
+# MENU UTAMA
+# ==============================================
+
+while true; do
+    clear
+
+    echo -e "${G}Hai hiyaki, selamat datang di program saya${N}"
+    sleep 0.2
+    echo -e "${R}____________________________________________${N}"
+    sleep 0.1
+    echo -e "${G}[1] Jalankan Ngrok${N}"
+    echo -e "${R}____________________________________________${N}"
+    sleep 0.1
+    echo -e "${G}[2] Jalankan modul lokal${N}"
+    echo -e "${R}____________________________________________${N}"
+    sleep 0.1
+    echo -e "${G}[3] Keluar${N}"
+    echo -e "${R}____________________________________________${N}"
+
+    printf "%b" "${B}Pilih: ${N}"
+    read -r pilih
+
+    case "$pilih" in
+        1)
+            echo -e "${Y}Memulai Ngrok...${N}"
+            sleep 1
+
+            if ! check_command ngrok; then
+                echo -e "${R}[!] Ngrok belum terpasang.${N}"
+                echo -e "${Y}    Jalankan: bash Install.sh${N}"
+                pause
+                continue
+            fi
+
+            while true; do
+                printf "%b" "${B}Masukkan port: ${N}"
+                read -r port
+
+                if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+                    echo -e "${R}Error: Port harus angka 1-65535.${N}"
+                    continue
+                fi
+
+                printf "%b" "${Y}Gunakan port $port? (y/n): ${N}"
+                read -r lanjut
+
+                case "$lanjut" in
+                    [yY])
+                        echo -e "${G}Memulai Ngrok di port $port...${N}"
+
+                        for i in {1..10}; do
+                            echo -ne "${G}▶${N}"
+                            sleep 0.1
+                        done
+                        echo ""
+
+                        ngrok http "$port"
+                        break
+                        ;;
+                    [nN])
+                        echo -e "${B}Dibatalkan.${N}"
+                        break
+                        ;;
+                    *)
+                        echo -e "${R}Pilih y atau n.${N}"
+                        ;;
+                esac
+            done
+            ;;
+
+        2)
+            echo -e "${B}Memeriksa modul lokal...${N}"
+            sleep 0.5
+            run_local_module
+            ;;
+
+        3)
+            echo -e "${G}Makasih sudah mampir.${N}"
+            sleep 1
+            exit 0
+            ;;
+
+        *)
+            echo -e "${R}Pilihan tidak tersedia. Pilih 1, 2, atau 3.${N}"
+            sleep 1
+            ;;
+    esac
+done
